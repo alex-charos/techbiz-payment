@@ -3,6 +3,8 @@ package gr.opap.techbiz.cap.payment.rest;
 import gr.opap.techbiz.cap.payment.entity.Payment;
 import gr.opap.techbiz.cap.payment.gateway.AntifraudGateway;
 import gr.opap.techbiz.cap.payment.repository.PaymentRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,11 +15,11 @@ import java.util.stream.Collectors;
 public class PaymentRESTService {
 
     private final PaymentRepository paymentRepository;
-    private final AntifraudGateway antifraudGateway;
+    private final RabbitTemplate rabbitTemplate;
 
-    public PaymentRESTService(PaymentRepository paymentRepository, AntifraudGateway antifraudGateway) {
+    public PaymentRESTService(PaymentRepository paymentRepository,RabbitTemplate rabbitTemplate) {
         this.paymentRepository = paymentRepository;
-        this.antifraudGateway = antifraudGateway;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @GetMapping
@@ -31,11 +33,9 @@ public class PaymentRESTService {
     }
 
     @PostMapping
-    public PaymentDTO createPayment(@RequestBody PaymentRequestDTO requestDTO) {
-        antifraudGateway.checkPayment(requestDTO);
-        Payment p = paymentRepository.save(requestDTO.toPayment());
-
-        return PaymentDTO.fromPayment(p);
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void createPayment(@RequestBody PaymentRequestDTO requestDTO) {
+       rabbitTemplate.convertAndSend("paymentCheckExchange", "payment.check", requestDTO);
     }
 
 

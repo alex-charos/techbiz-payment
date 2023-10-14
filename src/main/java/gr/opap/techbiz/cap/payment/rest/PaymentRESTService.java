@@ -1,8 +1,8 @@
 package gr.opap.techbiz.cap.payment.rest;
 
 import gr.opap.techbiz.cap.payment.entity.Payment;
+import gr.opap.techbiz.cap.payment.gateway.AntifraudGateway;
 import gr.opap.techbiz.cap.payment.repository.PaymentRepository;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,9 +13,11 @@ import java.util.stream.Collectors;
 public class PaymentRESTService {
 
     private final PaymentRepository paymentRepository;
+    private final AntifraudGateway antifraudGateway;
 
-    public PaymentRESTService(PaymentRepository paymentRepository) {
+    public PaymentRESTService(PaymentRepository paymentRepository, AntifraudGateway antifraudGateway) {
         this.paymentRepository = paymentRepository;
+        this.antifraudGateway = antifraudGateway;
     }
 
     @GetMapping
@@ -30,19 +32,20 @@ public class PaymentRESTService {
 
     @PostMapping
     public PaymentDTO createPayment(@RequestBody PaymentRequestDTO requestDTO) {
+        antifraudGateway.checkPayment(requestDTO);
         Payment p = paymentRepository.save(requestDTO.toPayment());
 
         return PaymentDTO.fromPayment(p);
     }
 
 
-    record PaymentDTO(Long id, String paymentType, Integer amountInCents, String userId){
+    public record PaymentDTO(Long id, String paymentType, Integer amountInCents, String userId){
         public static PaymentDTO fromPayment(Payment p ) {
             return new PaymentDTO(p.getId(), p.getPaymentType(), p.getAmountInCents(), p.getUserId());
         }
     }
 
-    record PaymentRequestDTO(String paymentType, Integer amountInCents, String userId){
+    public record PaymentRequestDTO(String paymentType, Integer amountInCents, String userId){
         public Payment toPayment(){
             Payment p = new Payment();
             p.setPaymentType(paymentType);
